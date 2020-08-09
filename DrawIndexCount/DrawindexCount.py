@@ -1,15 +1,31 @@
+""" 
+Create by zhongkailiu
+date: 2020.08.09
+
+Processing the txt from renderdoc to excel.Count the mesh and the triangle in the scene.
+Note: only for the mobile render in the ue4!
+
+处理renderdoc导出的txt文件，统计Mesh的使用数量和总面数。
+注意： 只能处理UE4的手机渲染模式下的捕获数据。
+"""
 import re
 import pandas as pd
+
+# the txt path, you must change it to your file path.
 path = '/Users/liuzhongkai/Documents/DOC/'
 txt = 'ccc.txt'
 f = open(path+txt)
 line = f.readline()
 start = 0
 drawcall = {}
+
+# read the txt file
 while line:
+    # we only processing the "MobileBasePass"
     if line.find('DynamicEd') > -1:
         start = 0
     
+    # processing the data
     if start == 1:
         s = line.split('|')[1].strip().strip(' \\- ').split(' ')
         name = s[1]
@@ -41,25 +57,14 @@ while line:
 
     line = f.readline()
 
+# Creating the data frame from dictionary
 data = pd.DataFrame(drawcall)
+# transform data column and row
 data = data.T
 data.rename(columns={0:'material',1:'triangle',2:'instance'},inplace=True)
 xlsx = 'output.xlsx'
 excel_path = path + xlsx
-# print(excel_path)
 writer = pd.ExcelWriter(excel_path)
 data.to_excel(writer,sheet_name='drawcall')
 writer.save()
 print(data)
-# print( drawcall )
-# for key in drawcall:
-#     pd.array(drawcall[key])
-# import numpy as np
-# import pandas as pd
- 
-# txt = np.loadtxt('/Users/liuzhongkai/Documents/DOC/ccc.txt')
-# txtDF = pd.DataFrame(txt)
-# txtDF.to_csv('/Users/liuzhongkai/Documents/DOC/ccc.csv',index=False)
-# data = pd.read_table('/Users/liuzhongkai/Documents/DOC/ccc.txt')
-# print(type(data))
-# print(data.shape[1])
