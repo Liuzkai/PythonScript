@@ -12,8 +12,8 @@ import re
 import pandas as pd
 
 # the txt path, you must change it to your file path.
-path = '/Users/liuzhongkai/Documents/DOC/'
-txt = 'ccc.txt'
+path = 'C:/Users/zhongkailiu.TENCENT/Desktop/'
+txt = 'aaa.txt'
 f = open(path+txt)
 line = f.readline()
 start = 0
@@ -35,6 +35,7 @@ while line:
         num = re.findall(r'\d+',ss)
         triangle = int(num[0])
         count = 0
+        drawindex = 1
         try: 
             count = int(num[1])
             triangle *= count
@@ -42,13 +43,14 @@ while line:
             count = 1
 
         k = name
-        v = [material, triangle, count]
+        v = [material, triangle, count, drawindex]
         if drawcall.get(k):
             if material[0] not in drawcall[k][0]:
                 drawcall[k][0].append(material[0])
                 drawcall[k][0].sort()
             drawcall[k][1] += triangle
             drawcall[k][2] += count
+            drawcall[k][3] += drawindex
         else:
             drawcall[k] = v
 
@@ -61,8 +63,8 @@ while line:
 data = pd.DataFrame(drawcall)
 # transform data column and row
 data = data.T
-data.rename(columns={0:'material',1:'triangle',2:'instance'},inplace=True)
-xlsx = 'output.xlsx'
+data.rename(columns={0:'material',1:'triangle',2:'instance',3:'drawcall'},inplace=True)
+xlsx = txt.split('.')[0] + '_output.xlsx'
 excel_path = path + xlsx
 writer = pd.ExcelWriter(excel_path)
 data.to_excel(writer,sheet_name='drawcall')
