@@ -13,7 +13,7 @@ import pandas as pd
 
 # the txt path, you must change it to your file path.
 path = 'C:/Users/zhongkailiu.TENCENT/Desktop/'
-txt = 'aaa.txt'
+txt = 'count05.txt'
 f = open(path+txt)
 line = f.readline()
 start = 0
@@ -63,7 +63,7 @@ while line:
 data = pd.DataFrame(drawcall)
 # transform data column and row
 data = data.T
-data.rename(columns={0:'material',1:'triangle',2:'instance',3:'drawcall'},inplace=True)
+data.rename(columns={0:'material',1:'vertex',2:'instance',3:'drawcall'},inplace=True)
 xlsx = txt.split('.')[0] + '_output.xlsx'
 excel_path = path + xlsx
 writer = pd.ExcelWriter(excel_path)
