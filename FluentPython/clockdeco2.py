@@ -9,6 +9,7 @@ functools.wraps 装饰器把相关的属性从 func 复制到 clocked 中。
 此外，这个新版还能正确处理关键字参数。
 '''
 def clock(func):
+
     @functools.wraps(func)
     def clocked(*args, **kwargs):
         t0 = time.time()
@@ -24,5 +25,6 @@ def clock(func):
         arg_str = ', '.join(arg_list)
         print("[%0.8fs] %s(%s) -> %r" %(elapsed, name, arg_str, result))
         return result
+
     return clocked
 
