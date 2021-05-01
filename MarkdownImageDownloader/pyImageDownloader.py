@@ -134,7 +134,6 @@ class Directory:
         temp_files = os.listdir(path)
         for file in temp_files:
             full_path = os.path.join(path, file)
-
             if os.path.isfile(full_path) and os.path.splitext(full_path)[1] == '.md':
                 article = Article(full_path)
                 article_list.append(article)
