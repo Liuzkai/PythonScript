@@ -245,3 +245,4 @@ class MDImageDownloader:
 
 
 dir_picker = MDImageDownloader()
+input("please input any key to exit!")
