@@ -46,6 +46,7 @@ class StatisticalFoliage:
         self.combine_csv()
         self.statistical()
         self.save_xlsx()
+        print("{} run end".format(type(self)))
 
     def find_sub_path(self, path):
         csv_list = []
@@ -154,7 +155,7 @@ class StatisticalFoliage:
         self.wb.save(name)
 
 
-StatisticalFoliage(r"D:\NExTWorkSpace\Arkm_ArtBranch\ArkGame\Saved\Screenshots\Windows\seq02_reduce")
+StatisticalFoliage(r"/Users/liuzhongkai/Documents/Git/PythonScript/ExcelPython")
 # data = pd.read_csv(r"D:\NExTWorkSpace\Arkm_ArtBranch\ArkGame\Saved\Screenshots\Windows\seq04\csv\viewport_seq04_1_1.csv")
 # b = data.sort_values(by=['StatGroupName'])
 # print(b)
