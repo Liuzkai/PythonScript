@@ -124,26 +124,24 @@ class StatisticalFoliage:
     def save_xlsx(self):
         ws = self.wb.worksheets[0]
         ws.cell(row=1, column=1, value="Camera")
-        ws.cell(row=1, column=2, value="LOD0")
-        ws.cell(row=1, column=3, value="LOD1")
-        ws.cell(row=1, column=4, value="LOD2")
-        ws.cell(row=1, column=5, value="Batch")
-        ws.cell(row=1, column=6, value="LOD0 Instance")
-        ws.cell(row=1, column=7, value="LOD1 Instance")
-        ws.cell(row=1, column=8, value="LOD2 Instance")
-        ws.cell(row=1, column=9, value="Batch Instance")
-        ws.cell(row=1, column=10, value="Triangle Total")
-        ws.cell(row=1, column=11, value="Instance Total")
+        ws.cell(row=1, column=2, value="LOD0 Tri")
+        ws.cell(row=1, column=3, value="LOD1 Tri")
+        ws.cell(row=1, column=4, value="LOD2 Tri")
+        ws.cell(row=1, column=5, value="Batch Tri")
+        ws.cell(row=1, column=6, value="LOD0 Inst")
+        ws.cell(row=1, column=7, value="LOD1 Inst")
+        ws.cell(row=1, column=8, value="LOD2 Inst")
+        ws.cell(row=1, column=9, value="Batch Inst")
+        ws.cell(row=1, column=10, value="Tri Total")
+        ws.cell(row=1, column=11, value="Inst Total")
         # the total data row
         data_row = len(self.LOD0)
         # set Camera Name
         for i in range(data_row):
             ws.cell(row=i + 2, column=1, value="camera {}".format(i + 1))
         # set Statistical Data
-        data = (self.LOD0 + self.LOD_0_Instance
-                + self.LOD1 + self.LOD_1_Instance
-                + self.LOD2 + self.LOD_2_Instance
-                + self.batch + self.batch_instance)
+        data = (self.LOD0 + self.LOD1 + self.LOD2 + self.batch
+                + self.LOD_0_Instance + self.LOD_1_Instance + self.LOD_2_Instance + self.batch_instance)
         for i, val in enumerate(data):
             ws.cell(row=(i % data_row + 2), column=math.floor(i / data_row + 2), value=val)
         # set Total Data
