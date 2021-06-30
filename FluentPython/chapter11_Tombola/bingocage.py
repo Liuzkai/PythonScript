@@ -12,7 +12,6 @@ class BingoCage(Tombola):
         self._items = []
         self.load(items)
 
-
     def load(self, items):
         self._items.extend(items)
         self._randomizer.shuffle(self._items)
