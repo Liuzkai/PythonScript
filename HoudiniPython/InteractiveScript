@@ -1,0 +1,163 @@
+"""
+State:          P3tpr subnet1
+State type:     p3tpr_subnet1
+Description:    P3tpr subnet1
+Author:         p3tpr
+Date Created:   November 22, 2020 - 07:39:50
+"""
+
+import hou
+import json
+from viewerstate import utils as su
+
+
+class State(object):
+    MSG = "Click and drag to rotate, hold shift to scale"
+
+    def __init__(self, state_name, scene_viewer):
+        self.state_name = state_name
+        self.scene_viewer = scene_viewer
+        self.pt_num = -1
+        self.node = None
+        self.shift_parm = None
+        self.json_parm = None
+        self.x_start = 0
+        self.shift = 0
+        self.multi = 1
+
+    def onEnter(self, kwargs):
+        self.node = kwargs["node"]
+        self.shift_parm = self.node.parm("shift")
+        self.json_parm = self.node.parm("json")
+        json_string = self.json_parm.eval()
+        geometry = self.node.geometry(0)
+        if geometry != None:
+            npoints = geometry.attribValue("handles")
+        else:
+            npoints = 0
+
+        if json_string == "":
+            json_list = list()
+            for i in range(npoints):
+                handle_dict = dict()
+                handle_dict["banking"] = 0
+                handle_dict["scale"] = 0
+                json_list.append(handle_dict)
+        else:
+            json_list = json.loads(json_string)
+            length = len(json_list)
+
+            if length < npoints:
+                extend_list = list()
+                for i in range(npoints - length):
+                    handle_dict = dict()
+                    handle_dict["banking"] = 0
+                    handle_dict["scale"] = 0
+                    extend_list.append(handle_dict)
+                json_list.extend(extend_list)
+            elif length > npoints:
+                for i in range(length - npoints):
+                    json_list.pop()
+
+        self.json_list = json_list
+        self.scene_viewer.setPromptMessage(State.MSG)
+
+    def onMouseEvent(self, kwargs):
+        """ Process mouse events
+        """
+        ui_event = kwargs["ui_event"]
+        reason = ui_event.reason()
+        dev = ui_event.device()
+        self.log("Mouse:", dev.mouseX(), dev.mouseY(), dev.isLeftButton())
+
+        geometry = self.node.geometry(0)
+
+        if reason == hou.uiEventReason.Start:
+
+            self.x_start = dev.mouseX()
+
+            origin, direction = ui_event.ray()
+
+            position = hou.Vector3()
+            normal = hou.Vector3()
+            uvw = hou.Vector3()
+
+            intersected = geometry.intersect(origin, direction, position, normal, uvw)
+
+            if not intersected == -1:
+                prim = geometry.prim(intersected)
+                normal = prim.floatListAttribValue("direction")
+                normal = hou.Vector3(normal)
+                self.log(normal)
+
+                angle = direction.angleTo(normal)
+
+                if angle < 90:
+                    self.multi = 1
+                else:
+                    self.multi = -1
+                self.pt_num = prim.attribValue("pt_num")
+            else:
+                self.pt_num = -1
+        elif reason == hou.uiEventReason.Active:
+            if self.pt_num != -1:
+                x_offset = dev.mouseX() - self.x_start
+                self.x_start = dev.mouseX()
+                if self.shift == 0:
+                    # Banking
+                    x_offset *= self.multi
+                    pt_dict = self.json_list[self.pt_num]
+                    old_offset = pt_dict["banking"]
+                    new_offset = old_offset + x_offset
+                    pt_dict["banking"] = new_offset
+                    self.json_list[self.pt_num] = pt_dict
+                    self.json_parm.set(json.dumps(self.json_list))
+                else:
+                    # Scale
+                    pt_dict = self.json_list[self.pt_num]
+                    old_offset = pt_dict["scale"]
+                    new_offset = old_offset + x_offset
+                    if new_offset > 5000:
+                        new_offset = 5000
+                    elif new_offset < -800:
+                        new_offset = -800
+                    pt_dict["scale"] = new_offset
+                    self.json_list[self.pt_num] = pt_dict
+                    self.json_parm.set(json.dumps(self.json_list))
+
+        # Must return True to consume the event
+        return False
+
+    def onKeyTransitEvent(self, kwargs):
+        """ Called for processing a transitory key event
+        """
+        ui_event = kwargs["ui_event"]
+        state_parms = kwargs["state_parms"]
+
+        node = kwargs["node"]
+        shift_parm = node.parm("shift")
+
+        if ui_event.device().isShiftKey() == 1:
+            shift_parm.set(1)
+            self.shift = 1
+        else:
+            shift_parm.set(0)
+            self.shift = 0
+
+        # Must returns True to consume the event
+        return False
+
+
+def createViewerStateTemplate():
+    """ Mandatory entry point to create and return the viewer state
+        template to register. """
+
+    state_typename = kwargs["type"].definition().sections()["DefaultState"].contents()
+    state_label = "P3tpr subnet1"
+    state_cat = hou.sopNodeTypeCategory()
+
+    template = hou.ViewerStateTemplate(state_typename, state_label, state_cat)
+    template.bindFactory(State)
+    template.bindIcon(kwargs["type"].icon())
+
+    return template
