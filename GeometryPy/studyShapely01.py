@@ -1,31 +1,77 @@
-import taichi as ti
-
-ti.init(arch=ti.gpu)
-
-n = 320
-pixels = ti.field(dtype=float, shape=(n * 2, n))
-
-
-@ti.func
-def complex_sqr(z):
-    return ti.Vector([z[0]**2 - z[1]**2, z[1] * z[0] * 2])
+from shapely.geometry import *
+import numpy as np
+import matplotlib.pyplot as plt
+import json
+from itertools import groupby
 
 
-@ti.kernel
-def paint(t: float):
-    for i, j in pixels:  # Parallelized over all pixels
-        c = ti.Vector([-0.8, ti.cos(t) * 0.2])
-        z = ti.Vector([i / n - 1, j / n - 0.5]) * 2
-        iterations = 0
-        while z.norm() < 20 and iterations < 50:
-            z = complex_sqr(z) + c
-            iterations += 1
-        pixels[i, j] = 1 - iterations * 0.02
+class spline:
+
+    def __init__(self, points_dict):
+        self.__geo_interface__ = points_dict
 
 
-gui = ti.GUI("Julia Set", res=(n * 2, n))
+def load_raodmap_json(path):
+    with open(path, 'r') as fp:
+        content = json.load(fp)
+        if 'GameObjects' in content:
+            objects = content['GameObjects']
 
-for i in range(1000000):
-    paint(i * 0.03)
-    gui.set_image(pixels)
-    gui.show()
+        coords = []
+        coord = []
+        ids = []
+        width = []
+        spline_type = []
+
+        for id, groups in groupby(objects, key=lambda r: r['ID']):
+            coord = []
+            for group in groups:
+                coord.append((group['X'], group['Y']))
+                ids.append(group['ID'])
+                width.append(group['Width'])
+                spline_type.append(group['SplineType'])
+            coords.append(coord)
+
+        geo_dict = {'type': 'MultiLineString',
+                    'ID': id,
+                    'width': width,
+                    'spline_type': spline_type,
+                    'coordinates': coords}
+
+        return geo_dict
+
+
+def main():
+    points_json = load_raodmap_json('roadmap_segment.json')
+    lines = shape(points_json)
+    rlines = [line for line in lines.geoms]
+    for i in range(len(rlines)):
+        cline = rlines.pop()
+        cross = cline.intersection(MultiLineString(rlines))
+
+        if isinstance(cross, Point):
+            pass
+            # plt.scatter(cline.xy[0], cline.xy[1])
+            # print("singlepoint: line is contains {} is {}, distance is {}".format(cross, cross.within(cline), cline.project(cross)))
+            # print("singlepoint: line is contains {} is {}, distance is {}".format(cross, cross.within(cline), cline.project(cross)))
+            # if not cline.touches(cross):
+            #     plt.plot(cline.xy[0], cline.xy[1])
+            #     # plt.scatter(cross.x, cross.y)
+
+        elif isinstance(cross, MultiPoint):
+            for point in cross.geoms:
+                print(cline)
+                print(point)
+                print("multipoints: line is contains {} is {}, distance is {}".format(point, point.within(cline), cline.project(point)))
+                # if not cline.touches(point):
+                plt.plot(cline.xy[0], cline.xy[1], scalex=False, scaley=False)
+                plt.scatter(point.x, point.y)
+    # for l in lines.geoms:
+    #     x, y = l.xy
+    #     plt.plot(x, y)
+
+    plt.show()
+
+
+if __name__ == "__main__":
+    main()
