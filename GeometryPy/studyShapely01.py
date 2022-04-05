@@ -72,14 +72,15 @@ def get_touch_lines(cross, lines):
     _touch_lines = []
     if isinstance(lines, MultiLineString):
         for line in lines.geoms:
-            snaped = snap(cross, line, 1.0)
-            if cross.equals_exact(snaped, 1.0):
+            dist = cross.distance(line)
+            if dist < 1.0 :
                 _touch_lines.append(line)
     else:
         for road in lines:
-            snaped = snap(cross, road.line, 1.0)
-            if cross.equals_exact(snaped, 1.0):
+            dist = cross.distance(road.line)
+            if dist < 1.0:
                 _touch_lines.append(road)
+    # print("input lines num : {} ---- output lines num : {}".format(len(lines), len(_touch_lines)))
     return _touch_lines
 
 
@@ -105,7 +106,6 @@ class CrossArea:
     def __init__(self, cross, multilines):
         self.__cross = cross
         self.__roads = get_touch_lines(cross, multilines)
-        self.__width = [road.width for road in self.__roads]
         self.__edges = self.get_edge_lines()
         self.__inters = self.get_edge_inters()
         self.__edge_splines = self.get_edge_splines()
@@ -127,18 +127,24 @@ class CrossArea:
             edge_spline_list.append(EdgeSpline(self.__cross, inter, touch_road))
         return edge_spline_list
 
+    def get_spline_properties(self):
+        properties = []
+        for spline in self.__edge_splines:
+            properties.append(spline.get_properties())
+        return properties
+
     def draw(self):
         # draw lines
-        if len(self.__roads) >0 :
+        if len(self.__roads) >0:
             for road in self.__roads:
                 line = road.line
                 plt.plot(line.xy[0], line.xy[1])
         # draw cross
         plt.scatter(self.__cross.x, self.__cross.y)
 
-    def draw_edge_only(self):
+    def draw_edge_only(self, draw_ends=True):
         for edge in self.__edge_splines:
-            edge.draw()
+            edge.draw(draw_ends)
 
 
 class EdgeSpline:
@@ -151,6 +157,7 @@ class EdgeSpline:
         self.inter = inter
         self.edges = edges
         self.straights = self.get_straight_roads()
+        self.endpoints = self.calc_properties()
         self.calc_properties()
 
     def get_straight_roads(self):
@@ -170,18 +177,20 @@ class EdgeSpline:
         for road in self.straights:
             line, width = road.line, road.width
             dist = line.project(self.inter)
-            if dist == 0.0:
+            if dist < 1.0:
                 end = line.interpolate(width)
             else:
                 end = line.interpolate(dist - width)
             points.append(end)
 
         if len(points) == 2:
-            start_loc = points[0].coords
-            end_loc = points[1].coords
-            start_tan = self.inter.coords - start_loc
-            end_tan = self.inter.coords - end_loc
+            start_loc = np.array(points[0].xy)
+            end_loc = np.array(points[1].xy)
+            start_tan = np.array(self.inter.coords.xy) - start_loc
+            end_tan = np.array(self.inter.coords.xy) - end_loc
             self.set_properties(start_loc, start_tan, end_loc, end_tan)
+
+        return points
 
     def set_properties(self, start_loc, start_tan, end_loc, end_tan):
         self.__start_location = start_loc
@@ -190,16 +199,21 @@ class EdgeSpline:
         self.__end_tangent = end_tan
 
     def get_properties(self):
-        return [(self.__start_location.x, self.__start_location.y),
-                (self.__start_tangent.x, self.__start_tangent.y),
-                (self.__end_location.x,self.__end_location.y),
-                (self.__end_tangent.x, self.__end_tangent.y)
-                ]
+        return {'start_location': [e[0] for e in self.__start_location.tolist()],
+                'start_tangent': [e[0] for e in self.__start_tangent.tolist()],
+                'end_location': [e[0] for e in self.__end_location.tolist()],
+                'end_tangent': [e[0] for e in self.__end_tangent.tolist()]
+                }
 
-    def draw(self):
+    def draw(self, draw_end=False):
+
         plt.scatter(self.inter.x, self.inter.y)
         for road in self.straights:
             plt.plot(road.line.xy[0], road.line.xy[1])
+        if draw_end:
+            for pts in self.endpoints:
+                # print('Inter : {} -- Ends {}'.format(self.inter, pts))
+                plt.scatter(pts.x, pts.y)
 
 
 class RoadLine:
@@ -246,11 +260,19 @@ def main():
         cross_area_list.append(cross_area)
 
     # draw
+    property_content = []
     for ca in cross_area_list:
+        property_content += ca.get_spline_properties()
         ca.draw_edge_only()
-
+    # for prop in property_content:
+        # print(prop)
     # show the graph
     plt.show()
+    # write to json
+    content = {}
+    with open('output_cross_splines.json', 'w') as pf:
+        content['spline'] = property_content
+        json.dump(content, pf)
 
 
 if __name__ == "__main__":
