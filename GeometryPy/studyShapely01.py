@@ -3,12 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import json
 from itertools import groupby
-
-
-class spline:
-
-    def __init__(self, points_dict):
-        self.__geo_interface__ = points_dict
+from shapely.ops import *
 
 
 def load_raodmap_json(path):
@@ -36,40 +31,98 @@ def load_raodmap_json(path):
                     'ID': id,
                     'width': width,
                     'spline_type': spline_type,
-                    'coordinates': coords}
+                    'coordinates': coords }
 
         return geo_dict
 
 
-def main():
-    points_json = load_raodmap_json('roadmap_segment.json')
-    lines = shape(points_json)
-    rlines = [line for line in lines.geoms]
-    for i in range(len(rlines)):
-        cline = rlines.pop()
-        cross = cline.intersection(MultiLineString(rlines))
-
+def get_intersections(multilines):
+    intersections = []
+    linelist = [line for line in multilines.geoms]
+    if linelist is None:
+        return intersections
+    # find the intersected points
+    for i in range(len(linelist) - 1):
+        line = linelist.pop()
+        cross = line.intersection(MultiLineString(linelist))
         if isinstance(cross, Point):
-            pass
-            # plt.scatter(cline.xy[0], cline.xy[1])
-            # print("singlepoint: line is contains {} is {}, distance is {}".format(cross, cross.within(cline), cline.project(cross)))
-            # print("singlepoint: line is contains {} is {}, distance is {}".format(cross, cross.within(cline), cline.project(cross)))
-            # if not cline.touches(cross):
-            #     plt.plot(cline.xy[0], cline.xy[1])
-            #     # plt.scatter(cross.x, cross.y)
+            distance = line.project(cross)
+            if distance > 0:
+                intersections.append(cross)
 
         elif isinstance(cross, MultiPoint):
-            for point in cross.geoms:
-                print(cline)
-                print(point)
-                print("multipoints: line is contains {} is {}, distance is {}".format(point, point.within(cline), cline.project(point)))
-                # if not cline.touches(point):
-                plt.plot(cline.xy[0], cline.xy[1], scalex=False, scaley=False)
-                plt.scatter(point.x, point.y)
-    # for l in lines.geoms:
-    #     x, y = l.xy
-    #     plt.plot(x, y)
+            for c in cross:
+                distance = line.project(cross)
+                if distance > 0:
+                    intersections.append(c)
 
+    return intersections
+
+
+
+def cut(line, distance):
+    # Cuts a line in two at a distance from its starting point
+    if distance <= 0.0 or distance >= line.length:
+        return [LineString(line)]
+    coords = list(line.coords)
+    for i, p in enumerate(coords):
+        pd = line.project(Point(p))
+        if pd == distance:
+            return [
+                LineString(coords[:i+1]),
+                LineString(coords[i:])]
+        if pd > distance:
+            cp = line.interpolate(distance)
+            return [
+                LineString(coords[:i] + [(cp.x, cp.y)]),
+                LineString([(cp.x, cp.y)] + coords[i:])]
+
+
+class CrossArea:
+    def __init__(self, cross, multilines):
+        self.__cross = cross
+        self.__lines = self.get_touch_lines(multilines)
+        self.__edges = []
+
+    def get_touch_lines(self, lines):
+        _edges = []
+        for line in lines.geoms:
+            snaped = snap(self.__cross, line, 1.0)
+            if self.__cross.equals_exact(snaped, 1.0):
+                _edges.append(line)
+        return _edges
+
+    def draw(self):
+        # draw lines
+        for line in self.__lines:
+            plt.plot(line.xy[0], line.xy[1])
+        # draw cross
+        plt.scatter(self.__cross.x, self.__cross.y)
+
+
+class EdgeLine:
+    def __init__(self, start_loc, start_tan, end_loc, end_tan):
+        self.__start_location = start_loc
+        self.__start_tangent = start_tan
+        self.__end_location = end_loc
+        self.__end_tangent = end_tan
+
+
+def main():
+    points_json = load_raodmap_json('roadmap_segment.json') # read the roadmap json file
+    lines = linemerge(shape(points_json))  # create shape and combine lines
+    # find the intersection
+    cross_points = get_intersections(lines)
+    # create cross area
+    cross_area_list = []
+    for cp in cross_points:
+        cross_area_list.append(CrossArea(cp, lines))
+
+    # draw
+    for ca in cross_area_list:
+        ca.draw()
+
+    # show the graph
     plt.show()
 
 
