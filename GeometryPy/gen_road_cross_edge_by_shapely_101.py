@@ -1,3 +1,14 @@
+"""
+Gen Road Edge by Shapely v 1.01
+by zhongkailiu
+last data : 2022.4.8
+TODO:
+1. separate line from mid of intersections
+2. add z coords for RoadLine [done]
+3. clear useless code
+4. Filter the RoadLine type [done]
+"""
+
 from shapely.geometry import *
 from shapely.ops import *
 import numpy as np
@@ -7,25 +18,27 @@ from itertools import groupby
 import math
 
 
-def load_raodmap_json(path):
+def load_spline_json(path, **filters):
     with open(path, 'r') as fp:
         content = json.load(fp)
         if 'GameObjects' in content:
             objects = content['GameObjects']
+        objects_filter = [e for e in objects
+                          if e['Width'] > filters["Width"] and e['SplineType'] == filters['SplineType']]
         coords = []
         ids = []
         width = []
         spline_type = []
         start = []
-        for i, groups in groupby(objects, key=lambda r: r['ID']):
+        for i, groups in groupby(objects_filter, key=lambda r: r['ID']):
             coord = []
             for group in groups:
-                coord.append((group['X'], group['Y']))
+                coord.append((group['X'], group['Y'], group['Z']))
             # collected the last points data
             ids.append(i)
             width.append(group['Width'])
             spline_type.append(group['SplineType'])
-            start.append((group['X'], group['Y']))
+            start.append((group['X'], group['Y'], group['Z']))
             # collected the all points coords
             coords.append(coord)
 
@@ -78,7 +91,7 @@ def round_coords(point_list):
 
 def merge_intersections(point_list, tolerance=700.0):
     result = []
-    for i in range(len(point_list)-1):
+    for i in range(len(point_list) - 1):
         current = point_list.pop()
         rest = MultiPoint(point_list)
         p0, p1 = nearest_points(current, rest)
@@ -154,19 +167,10 @@ class CrossArea:
         if len(result.geoms) > 2:
             # recalculated cross point position
             inters = get_intersections(result)
-            self.__cross = Point(MultiPoint(inters).centroid)
+            points = MultiPoint(inters)
+            centroid_coords = [points.centroid.x, points.centroid.y, self.__cross.z]
+            self.__cross = Point(centroid_coords)
         return [RoadLine(r, roads[i]) for i, r in enumerate(result.geoms)]
-
-    def confirm_edge_id(self):
-        """ deprecate """
-        for road in self.__edges:
-            width = road.width
-            inters = road.line.intersection(self.__cross.buffer(width/4.0))
-            a, b = inters.coords.xy[0], inters.coords.xy[-1]
-            cat = math.atan2(b[1]-a[1], b[0]-a[0])
-            r = (cat + math.pi) % math.pi
-            road.roadId = r
-        self.__edges = sorted(self.__edges, key=lambda x: x.roadId)
 
     def get_edge_lines(self):
         edges = []
@@ -175,13 +179,7 @@ class CrossArea:
         return edges
 
     def get_edge_inters(self):
-        # multi_edges = sorted(self.__edges, key=lambda x: x.roadId)
         inters = get_intersections([edge.line for edge in self.__edges])
-        # multi_points = MultiPoint(inters)
-        # filter points with cross area
-        # result = filter(self.__cross.buffer(self.__roads[0].width*2.0).contains, inters)
-        # inters = [r for r in result]
-        # filter points with convex hull
         multi_points = MultiPoint(inters)
         convex = multi_points.convex_hull
         result = filter(convex.touches, inters)
@@ -243,7 +241,7 @@ class EdgeSpline:
                 if line2.intersects(multiroads):
                     # the special case : circle road will hit twice'
                     sub_inter1 = line1.intersection(multiroads)
-                    if self.inter.buffer(self.roads[0].width*2.0).contains(sub_inter1):
+                    if self.inter.buffer(self.roads[0].width * 2.0).contains(sub_inter1):
                         straight_lines.append(RoadLine(line2, edge))
                     else:
                         straight_lines.append(RoadLine(line1, edge))
@@ -258,7 +256,6 @@ class EdgeSpline:
         points = []
         if self.straights is None:
             return None
-
         for road in self.straights:
             line, width = road.line, road.width
             dist = line.project(self.inter)
@@ -273,13 +270,11 @@ class EdgeSpline:
             points.insert(1, self.inter)
             if LinearRing(points).is_ccw:
                 points.reverse()
-
             start_loc = np.array(points[0].xy)
             end_loc = np.array(points[2].xy)
             start_tan = (np.array(self.inter.coords.xy) - start_loc) * 2.0
             end_tan = (end_loc - np.array(self.inter.coords.xy)) * 2.0
             self.set_properties(start_loc, start_tan, end_loc, end_tan)
-
         return points
 
     def set_properties(self, start_loc, start_tan, end_loc, end_tan):
@@ -291,11 +286,19 @@ class EdgeSpline:
     def get_properties(self):
         if self.__start_location is None:
             return None
-
-        return {'start_location': [round(e[0], 2) for e in self.__start_location.tolist()],
-                'start_tangent': [round(e[0], 2) for e in self.__start_tangent.tolist()],
-                'end_location': [round(e[0], 2) for e in self.__end_location.tolist()],
-                'end_tangent': [round(e[0], 2) for e in self.__end_tangent.tolist()]
+        z = round(self.cross.z, 2)
+        start_location = [round(e[0], 2) for e in self.__start_location.tolist()]
+        start_tangent = [round(e[0], 2) for e in self.__start_tangent.tolist()]
+        end_location = [round(e[0], 2) for e in self.__end_location.tolist()]
+        end_tangent = [round(e[0], 2) for e in self.__end_tangent.tolist()]
+        start_location.append(z)
+        start_tangent.append(z)
+        end_location.append(z)
+        end_tangent.append(z)
+        return {'start_location': start_location,
+                'start_tangent': start_tangent,
+                'end_location': end_location,
+                'end_tangent': end_tangent
                 }
 
     def draw(self, draw_end=False):
@@ -313,20 +316,22 @@ class RoadLine:
     def __init__(self, *args):
         if len(args) > 2:
             self.line, self.width, self.splineType, self.roadId = args
+
         else:
             line = args[0]
             road = args[1]
-            self.line, self.width, self.splineType, self.roadId = line, road.width, road.splineType, road.roadId
+            self.line = line
+            self.width, self.splineType, self.roadId = road.width, road.splineType, road.roadId,
 
     @classmethod
-    def get_properties_from_json(cls, linestring, points_json, id):
+    def get_properties_from_json(cls, linestring, points_json, Id):
         start_points = points_json['start']
         types = points_json['spline_type']
         widths = points_json['width']
         for i, pos in enumerate(start_points):
             pt = Point(pos)
             if not pt.disjoint(linestring):
-                return cls(linestring, widths[i], types[i], id)
+                return cls(linestring, widths[i], types[i], Id)
 
     def get_road_edges(self):
         side_l = self.line.parallel_offset(distance=self.width, side='left',
@@ -341,15 +346,16 @@ def main():
     """ load Josn files """
     json_path = 'D:/NExTWorkSpace/ArkWorkSpace/Projects/Ark2019/Trunk/UE4NEXT_Stable/Engine/Plugins/Runtime/HoudiniEngine/Content/roadSys/'
     # json_path = 'D:/Foliage/'
-    points_json = load_raodmap_json(json_path + 'roadmap_segment.json')  # read the roadmap json file
+    filters = {'Width': 500.0, 'SplineType': 1}
+    points_json = load_spline_json(json_path + 'roadmap_segment.json', **filters)  # read the roadmap json file
     '''create original line and merge them'''
     load_result = shape(points_json)
     lines = linemerge(load_result)  # create shape and combine lines
-    """create road line instance"""
+    # """create road line instance"""
     road_lines = []
     for i, line in enumerate(lines.geoms):
         road_lines.append(RoadLine.get_properties_from_json(line, points_json, i))
-    '''find the intersection'''
+    # '''find the intersection'''
     cross_points = get_intersections(lines)
     cross_result = merge_intersections(cross_points)
     '''create cross area'''
@@ -380,5 +386,6 @@ def main():
 
 if __name__ == "__main__":
     import time
+
     main()
     print('process time is {}'.format(time.process_time()))
