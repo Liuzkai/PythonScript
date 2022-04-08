@@ -12,9 +12,7 @@ def load_raodmap_json(path):
         content = json.load(fp)
         if 'GameObjects' in content:
             objects = content['GameObjects']
-
         coords = []
-        coord = []
         ids = []
         width = []
         spline_type = []
@@ -140,25 +138,27 @@ class CrossArea:
         self.__edge_splines = self.get_edge_splines()
 
     def cross_road(self, line_list):
-        roads = get_touch_lines(self.__cross, line_list, 10.0)
-        result = []
+        roads = get_touch_lines(self.__cross, line_list, 700.0)
+        pts = []
         for road in roads:
             dist = road.line.project(self.__cross)
             width = road.width
-            position = dist - width * 2.0
-            length = 0 if position < 0 else position
-            line1, line2 = cut(road.line, length)
-            line3 = get_touch_lines(self.__cross, MultiLineString([line1, line2]), 10.0)
-            dist = line3[0].project(self.__cross)
-            line1, line2 = cut(line3[0], (dist + width * 2.0))
-            line6 = get_touch_lines(self.__cross, MultiLineString([line1, line2]), 10.0)
-            touch_lines = get_touch_lines(self.__cross, MultiLineString(line6))
-            for line in touch_lines:
-                plt.plot(line.xy[0], line.xy[1])
-            result += [RoadLine(line, road) for line in touch_lines]
-        return result
+            start = dist - width * 5.0
+            end = dist + width * 5.0
+            pts.append(road.line.interpolate(start))
+            pts.append(road.line.interpolate(end))
+        bound = MultiPoint(pts).bounds
+        result = clip_by_rect(MultiLineString([r.line for r in roads]), bound[0], bound[1], bound[2], bound[3])
+        for r in result.geoms:
+            plt.plot(r.xy[0], r.xy[1])
+        if len(result.geoms) > 2:
+            # recalculated cross point position
+            inters = get_intersections(result)
+            self.__cross = Point(MultiPoint(inters).centroid)
+        return [RoadLine(r, roads[i]) for i, r in enumerate(result.geoms)]
 
     def confirm_edge_id(self):
+        """ deprecate """
         for road in self.__edges:
             width = road.width
             inters = road.line.intersection(self.__cross.buffer(width/4.0))
@@ -175,12 +175,12 @@ class CrossArea:
         return edges
 
     def get_edge_inters(self):
-        multi_edges = sorted(self.__edges, key=lambda x: x.roadId)
-        inters = get_intersections([edge.line for edge in multi_edges])
-        multi_points = MultiPoint(inters)
+        # multi_edges = sorted(self.__edges, key=lambda x: x.roadId)
+        inters = get_intersections([edge.line for edge in self.__edges])
+        # multi_points = MultiPoint(inters)
         # filter points with cross area
-        result = filter(self.__cross.buffer(self.__roads[0].width*2.0).contains, inters)
-        inters = [r for r in result]
+        # result = filter(self.__cross.buffer(self.__roads[0].width*2.0).contains, inters)
+        # inters = [r for r in result]
         # filter points with convex hull
         multi_points = MultiPoint(inters)
         convex = multi_points.convex_hull
@@ -362,7 +362,7 @@ def main():
     property_content = []
     for ca in cross_area_list:
         property_content += ca.get_spline_properties()
-        # ca.draw_edge_only()
+        ca.draw_edge_only()
 
     # output log
     # for prop in property_content:
