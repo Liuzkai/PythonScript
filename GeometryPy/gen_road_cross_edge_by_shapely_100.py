@@ -339,8 +339,8 @@ class RoadLine:
 
 def main():
     """ load Josn files """
-    json_path = 'D:/NExTWorkSpace/ArkWorkSpace/Projects/Ark2019/Trunk/UE4NEXT_Stable/Engine/Plugins/Runtime/HoudiniEngine/Content/roadSys/'
-    # json_path = 'D:/Foliage/'
+    # json_path = 'D:/NExTWorkSpace/ArkWorkSpace/Projects/Ark2019/Trunk/UE4NEXT_Stable/Engine/Plugins/Runtime/HoudiniEngine/Content/roadSys/'
+    json_path = 'D:/Foliage/'
     points_json = load_raodmap_json(json_path + 'roadmap_segment.json')  # read the roadmap json file
     '''create original line and merge them'''
     load_result = shape(points_json)
