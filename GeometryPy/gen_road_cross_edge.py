@@ -84,7 +84,7 @@ class RoadLine:
 
 class EdgeSpline:
     """
-    EdgeSpline 类作为我们最小的生成单元。一个交叉路口至少包含2个实例。每个实例代表一条马路的一边。
+    EdgeSpline 类作为最小的生成单元。一个交叉路口至少包含2个实例。每个实例代表一条马路的一边。
     属性：
     __start_location：起始位置信息，这是我们最终想要的数据。
     __start_tangent ：起始切线信息，这是我们最终想要的数据。
@@ -426,10 +426,8 @@ def cut_mid(line, start, end):
 def main():
     """ gen road edge script """
     ''' 加载Json文件，保存了引擎中Spline的点信息 '''
-    json_path = 'D:/NExTWorkSpace/ArkWorkSpace/Projects/Ark2019/Trunk/UE4NEXT_Stable/Engine/Plugins/Runtime/HoudiniEngine/Content/roadSys/'
-    # json_path = 'D:/Foliage/'
     filters = {'Width': 500.0, 'SplineType': 1}
-    points_json = load_spline_json(json_path + 'roadmap_segment.json', **filters)  # read the roadmap json file
+    points_json = load_spline_json('roadmap_segment.json', **filters)  # read the roadmap json file
 
     '''生成原始曲线，合并相邻曲线。'''
     lines = linemerge(shape(points_json))
