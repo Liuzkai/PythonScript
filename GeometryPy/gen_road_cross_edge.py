@@ -42,13 +42,13 @@ class RoadLine:
 
     @classmethod
     def get_properties_from_json(cls, linestring, points_json, Id):
-        '''
+        """
         RoadLine备用构造函数，从Json文件中生成。
         :param linestring: 输入的曲线
         :param points_json: 点云Json文件内容
         :param Id: 线段ID
         :return: 返回类的实例
-        '''
+        """
         start_points = points_json['start']
         types = points_json['spline_type']
         widths = points_json['width']
@@ -58,10 +58,10 @@ class RoadLine:
                 return cls(linestring, widths[i], types[i], Id)
 
     def get_road_edges(self):
-        '''
+        """
         返回道路的边线，宽度有width属性控制
         :return: RoadLine数组
-        '''
+        """
         side_l = self.line.parallel_offset(distance=self.width, side='left',
                                            resolution=16, join_style=1, mitre_limit=5.0)
         side_r = self.line.parallel_offset(distance=self.width, side='right',
@@ -70,12 +70,12 @@ class RoadLine:
                 RoadLine(side_r, self.width, self.splineType, self.roadId)]
 
     def update_intersections_attribute(self, intersections_list, tolerance=2.0):
-        '''
+        """
         更新道路交点属性
         :param intersections_list: 交点数组
         :param tolerance: 精度。这里指距离。如果交点与直线相聚小于该值，即作为该曲线的交点。
         :return: None
-        '''
+        """
         for intersection in intersections_list:
             dist = intersection.distance(self.line)
             if dist < tolerance:
@@ -83,7 +83,7 @@ class RoadLine:
 
 
 class EdgeSpline:
-    '''
+    """
     EdgeSpline 类作为我们最小的生成单元。一个交叉路口至少包含2个实例。每个实例代表一条马路的一边。
     属性：
     __start_location：起始位置信息，这是我们最终想要的数据。
@@ -96,7 +96,7 @@ class EdgeSpline:
     roads ： 边线所属道路
     straights ：边线中交点间的直路
     endpoints ：计算所得的起始结束点
-    '''
+    """
     def __init__(self, cross, inter, edges, roads):
         self.__start_location = None
         self.__start_tangent = None
@@ -110,10 +110,10 @@ class EdgeSpline:
         self.endpoints = self.calc_properties()
 
     def get_straight_roads(self):
-        '''
+        """
         如果一条边线有两个交点，那么就会在两个交点中间位置将曲线分层两节。保证每条曲线最多只有一个交点。
         :return: 只有一个交点的曲线数组
-        '''
+        """
         straight_lines = []
         for edge in self.edges:
             dis = edge.line.project(self.inter)
@@ -426,8 +426,8 @@ def cut_mid(line, start, end):
 def main():
     """ gen road edge script """
     ''' 加载Json文件，保存了引擎中Spline的点信息 '''
-    # json_path = 'D:/NExTWorkSpace/ArkWorkSpace/Projects/Ark2019/Trunk/UE4NEXT_Stable/Engine/Plugins/Runtime/HoudiniEngine/Content/roadSys/'
-    json_path = 'D:/Foliage/'
+    json_path = 'D:/NExTWorkSpace/ArkWorkSpace/Projects/Ark2019/Trunk/UE4NEXT_Stable/Engine/Plugins/Runtime/HoudiniEngine/Content/roadSys/'
+    # json_path = 'D:/Foliage/'
     filters = {'Width': 500.0, 'SplineType': 1}
     points_json = load_spline_json(json_path + 'roadmap_segment.json', **filters)  # read the roadmap json file
 
@@ -435,13 +435,13 @@ def main():
     lines = linemerge(shape(points_json))
 
     '''查找交叉点，并合并属于同一个交叉口的交叉点'''
-    cross_result = merge_intersections(get_intersections(lines))
+    cross_result = merge_intersections(get_intersections(lines), 700.0)
 
     '''创建我们自定义的类RoadLine实例，并保存经过本线段上的交点'''
     road_lines = []
     for i, line in enumerate(lines.geoms):
         roadline = RoadLine.get_properties_from_json(line, points_json, i)
-        roadline.update_intersections_attribute(cross_result, roadline.width*0.5)
+        roadline.update_intersections_attribute(cross_result, 700.0)
         if len(roadline.intersections) > 0:
             # 如果一条曲线有交点，便保存近数组进行进一步处理
             road_lines.append(roadline)
