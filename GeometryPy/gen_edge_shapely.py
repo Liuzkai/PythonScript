@@ -1,8 +1,7 @@
 """
 Gen Road Edge by Shapely v 1.01
 by zhongkailiu
-creation data : 2022.4.13
-version for exe package!
+creation data : 2022.4.8
 """
 
 from shapely.geometry import *
@@ -375,14 +374,7 @@ def main(argv):
 
     '''find the intersection'''
     cross_result = merge_intersections(get_intersections(lines))
-    '''filter intersections by argv'''
-    if has_loc:
-        _, nearest_cross = nearest_points(Point(gen_loc), MultiPoint(cross_result))
-        if nearest_cross:
-            if Point(gen_loc).distance(nearest_cross) < 1000.0:
-                cross_result = [Point(nearest_cross.x, nearest_cross.y, gen_loc[2])]
-            else:
-                cross_result = []
+
     '''create road line instance'''
     road_lines = []
     for i, line in enumerate(lines.geoms):
@@ -391,9 +383,17 @@ def main(argv):
         if len(roadline.intersections) > 0:
             road_lines.append(roadline)
 
+    '''filter intersections by argv'''
+    nearest_cross = None
+    if has_loc:
+        _, nearest_cross = nearest_points(Point(gen_loc), MultiPoint(cross_result))
+                
     '''create cross area'''
     cross_area_list = []
     for cp in cross_result:
+        if has_loc and nearest_cross is not None:
+            if nearest_cross.distance(cp) > 500.0:
+                continue
         cross_area = CrossArea(cp, road_lines, filters)
         cross_area_list.append(cross_area)
 
