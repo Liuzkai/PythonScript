@@ -46,9 +46,9 @@ def fbx_export_option():
     _options.ascii = False
     _options.collision = False
     _options.export_local_time = True
-    _options.export_morph_targets = False
-    _options.export_preview_mesh = False
-    _options.fbx_export_compatibility = unreal.FbxExportCompatibility.FBX_2013
+    _options.export_morph_targets = True
+    _options.export_preview_mesh = True
+    _options.fbx_export_compatibility = unreal.FbxExportCompatibility.FBX_2018
     _options.force_front_x_axis = False
     _options.level_of_detail = False
     _options.map_skeletal_motion_to_root = False
@@ -77,6 +77,9 @@ def generate_task_from_asset(asset, name):
     if isinstance(asset, unreal.StaticMesh):
         ex = unreal.StaticMeshExporterFBX()
         _task = create_export_task(ex, asset, fbx_export_option(), filename)
+    elif isinstance(asset, unreal.SkeletalMesh):
+        ex = unreal.SkeletalMeshExporterFBX()
+        _task = create_export_task(ex, asset, fbx_export_option(), filename)
     elif isinstance(asset, unreal.Texture2D):
         ex = unreal.TextureExporterTGA()
         filename = unreal.Paths.project_saved_dir() + 'export/' + name + '/' + asset.get_name() + '.tga'
@@ -95,7 +98,7 @@ export_asset = []
 file_name = "default_object"
 for asset_data in assets:
     # only export mesh ?
-    if isinstance(asset_data.get_asset(), unreal.StaticMesh):
+    if isinstance(asset_data.get_asset(), unreal.StaticMesh) or isinstance(asset_data.get_asset(), unreal.SkeletalMesh):
         file_name = asset_data.get_asset().get_name()
         unreal.log("export asset : %s" % file_name)
         export_asset.append(asset_data.get_asset())
@@ -124,7 +127,7 @@ export_tasks_sm = []
 export_tasks_tx = []
 # generate the export tasks
 for t in export_asset:
-    if isinstance(t, unreal.StaticMesh):
+    if isinstance(t, unreal.StaticMesh) or isinstance(t, unreal.SkeletalMesh):
         file_name = t.get_name()
         export_tasks_sm.append(generate_task_from_asset(t, file_name))
     else:
